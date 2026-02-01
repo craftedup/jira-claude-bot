@@ -8,8 +8,8 @@ export interface ClaudeResult {
   error?: string;
 }
 
-// Default timeout: 60 seconds (configure via claude.timeout in yaml, value in ms)
-const DEFAULT_TIMEOUT_MS = 60 * 1000;
+// Default timeout: 30 minutes (configure via claude.timeout in yaml, value in ms)
+const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 
 export class ClaudeClient {
   private config: ClaudeConfig;
