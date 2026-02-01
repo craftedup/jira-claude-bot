@@ -31,7 +31,7 @@ export class ClaudeClient {
 
   async runClaude(prompt: string, workingDir: string): Promise<ClaudeResult> {
     return new Promise((resolve) => {
-      const args = ['--dangerously-skip-permissions'];
+      const args = ['--print', '--dangerously-skip-permissions'];
 
       if (this.config.model) {
         args.push('--model', this.config.model);
