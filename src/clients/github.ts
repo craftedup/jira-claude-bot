@@ -184,6 +184,30 @@ export class GitHubClient {
     }
   }
 
+  async getCommitSummary(baseBranch: string): Promise<string> {
+    try {
+      // Get commit messages
+      const commits = this.exec(`git log ${baseBranch}..HEAD --pretty=format:"- %s"`).trim();
+
+      // Get changed files with stats
+      const files = this.exec(`git diff ${baseBranch}..HEAD --stat --stat-width=60`).trim();
+
+      let summary = '';
+
+      if (commits) {
+        summary += `**Commits:**\n${commits}\n\n`;
+      }
+
+      if (files) {
+        summary += `**Files changed:**\n\`\`\`\n${files}\n\`\`\``;
+      }
+
+      return summary || '- See PR for details';
+    } catch {
+      return '- See PR for details';
+    }
+  }
+
   async getStatus(): Promise<{ staged: string[]; unstaged: string[]; untracked: string[] }> {
     const result = this.exec('git status --porcelain');
     const lines = result.split('\n').filter(l => l.trim());

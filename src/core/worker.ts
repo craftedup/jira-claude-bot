@@ -114,7 +114,8 @@ export class Worker {
         this.projectConfig.workflow.pr.titlePattern,
         ticket
       );
-      const changesSummary = this.extractChangesSummary(claudeResult.output);
+      // Get summary from git commits since Claude output isn't captured
+      const changesSummary = await this.github.getCommitSummary(this.projectConfig.workflow.pr.baseBranch);
       const prBody = this.formatPrBody(ticket, ticketUrl, changesSummary);
 
       this.logger.info(`Creating PR...`);
