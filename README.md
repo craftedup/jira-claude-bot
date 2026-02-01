@@ -14,12 +14,31 @@ Automated JIRA ticket processing with Claude Code. This bot can automatically wo
 
 ### Via npm (for Crafted org members)
 
-```bash
-# Authenticate with GitHub Packages (one-time setup)
-npm login --registry=https://npm.pkg.github.com --scope=@craftedup
+**1. Create a GitHub Personal Access Token:**
 
-# Install globally
+Go to https://github.com/settings/tokens/new?scopes=read:packages and create a token with `read:packages` scope.
+
+**2. Configure npm to use GitHub Packages:**
+
+Add the following to `~/.npmrc` (create the file if it doesn't exist):
+
+```
+@craftedup:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN_HERE
+```
+
+Replace `YOUR_GITHUB_TOKEN_HERE` with your PAT.
+
+**3. Install globally:**
+
+```bash
 npm install -g @craftedup/jira-claude-bot
+```
+
+**4. Verify installation:**
+
+```bash
+jira-claude-bot --version
 ```
 
 ### From source
