@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { Command } from 'commander';
 import { initCommand } from './commands/init';
 import { workCommand } from './commands/work';

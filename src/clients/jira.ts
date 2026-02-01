@@ -89,7 +89,7 @@ export class JiraClient {
   }
 
   async searchTickets(jql: string, maxResults: number = 50): Promise<JiraTicket[]> {
-    const response = await this.client.post('/search', {
+    const response = await this.client.post('/search/jql', {
       jql,
       maxResults,
       fields: [
