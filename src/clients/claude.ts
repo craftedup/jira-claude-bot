@@ -45,9 +45,13 @@ export class ClaudeClient {
 
       const childProcess = spawn('claude', args, {
         cwd: workingDir,
-        stdio: 'inherit',  // Let Claude use the terminal directly
+        stdio: ['pipe', 'inherit', 'inherit'],  // Pipe stdin, inherit stdout/stderr
         env: { ...process.env },
       });
+
+      // Auto-confirm any permission prompts
+      childProcess.stdin?.write('y\n');
+      childProcess.stdin?.end();
 
       // Set up timeout
       const timeoutMs = this.config.timeout || DEFAULT_TIMEOUT_MS;
