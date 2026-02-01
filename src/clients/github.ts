@@ -25,6 +25,21 @@ export class GitHubClient {
   async createBranch(branchName: string, baseBranch: string = 'develop'): Promise<void> {
     this.exec(`git checkout ${baseBranch}`);
     this.exec(`git pull origin ${baseBranch}`);
+
+    // Check if branch already exists locally
+    const branchExists = await this.getBranchExists(branchName);
+    if (branchExists) {
+      // Delete the existing branch and start fresh
+      this.exec(`git branch -D ${branchName}`);
+    }
+
+    // Also check for remote branch and delete if exists
+    try {
+      this.exec(`git push origin --delete ${branchName}`);
+    } catch {
+      // Remote branch doesn't exist, that's fine
+    }
+
     this.exec(`git checkout -b ${branchName}`);
   }
 
