@@ -31,7 +31,7 @@ export class ClaudeClient {
 
   async runClaude(prompt: string, workingDir: string): Promise<ClaudeResult> {
     return new Promise((resolve) => {
-      const args = ['--dangerously-skip-permissions'];
+      const args = ['--print', '--dangerously-skip-permissions'];
 
       if (this.config.model) {
         args.push('--model', this.config.model);
@@ -45,13 +45,25 @@ export class ClaudeClient {
 
       const childProcess = spawn('claude', args, {
         cwd: workingDir,
-        stdio: ['pipe', 'inherit', 'inherit'],  // Pipe stdin, inherit stdout/stderr
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
       });
 
-      // Auto-confirm any permission prompts
-      childProcess.stdin?.write('y\n');
-      childProcess.stdin?.end();
+      let stdout = '';
+      let stderr = '';
+
+      // Stream output while capturing it
+      childProcess.stdout?.on('data', (data: Buffer) => {
+        const text = data.toString();
+        stdout += text;
+        process.stdout.write(text);
+      });
+
+      childProcess.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString();
+        stderr += text;
+        process.stderr.write(text);
+      });
 
       // Set up timeout
       const timeoutMs = this.config.timeout || DEFAULT_TIMEOUT_MS;
@@ -74,13 +86,13 @@ export class ClaudeClient {
         if (code === 0) {
           resolve({
             success: true,
-            output: 'Claude completed successfully (output shown in terminal)',
+            output: stdout,
           });
         } else {
           resolve({
             success: false,
-            output: '',
-            error: `Claude exited with code ${code}`,
+            output: stdout,
+            error: stderr || `Claude exited with code ${code}`,
           });
         }
       });
@@ -89,7 +101,7 @@ export class ClaudeClient {
         clearTimeout(timeout);
         resolve({
           success: false,
-          output: '',
+          output: stdout,
           error: err.message,
         });
       });
