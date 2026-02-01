@@ -73,19 +73,36 @@ export class Worker {
         this.workingDir
       );
 
+      this.logger.info(`Claude Code finished. Success: ${claudeResult.success}`);
+      if (claudeResult.error) {
+        this.logger.error(`Claude error: ${claudeResult.error}`);
+      }
+
       if (!claudeResult.success) {
         throw new Error(`Claude Code failed: ${claudeResult.error}`);
       }
 
-      // 5. Check if there are changes to commit
+      // 5. Check if there are changes (committed or uncommitted)
+      this.logger.info(`Checking for changes...`);
       const status = await this.github.getStatus();
-      if (status.staged.length === 0 && status.unstaged.length === 0 && status.untracked.length === 0) {
+      const hasUncommitted = status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0;
+      const hasNewCommits = await this.github.hasNewCommits(this.projectConfig.workflow.pr.baseBranch);
+
+      this.logger.info(`Git status - uncommitted: ${hasUncommitted}, new commits: ${hasNewCommits}`);
+
+      if (!hasUncommitted && !hasNewCommits) {
         this.logger.warn(`No changes made by Claude Code`);
         return {
           success: false,
           ticketKey,
           error: 'No changes were made',
         };
+      }
+
+      // If there are uncommitted changes, commit them
+      if (hasUncommitted) {
+        this.logger.info(`Committing uncommitted changes...`);
+        await this.github.commitChanges(`${ticketKey}: Implementation`);
       }
 
       // 6. Push branch

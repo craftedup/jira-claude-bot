@@ -163,6 +163,16 @@ export class GitHubClient {
     }
   }
 
+  async hasNewCommits(baseBranch: string): Promise<boolean> {
+    try {
+      // Check if current branch has commits that aren't in base branch
+      const result = this.exec(`git log ${baseBranch}..HEAD --oneline`);
+      return result.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   async getStatus(): Promise<{ staged: string[]; unstaged: string[]; untracked: string[] }> {
     const result = this.exec('git status --porcelain');
     const lines = result.split('\n').filter(l => l.trim());
