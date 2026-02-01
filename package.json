@@ -1,6 +1,6 @@
 {
   "name": "@craftedup/jira-claude-bot",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Automated JIRA ticket processing with Claude Code",
   "main": "dist/cli/index.js",
   "bin": {
