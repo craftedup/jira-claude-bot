@@ -40,6 +40,7 @@ export interface DeploymentConfig {
 export interface ClaudeConfig {
   model: 'sonnet' | 'opus' | 'haiku';
   maxTurns: number;
+  timeout?: number;  // Timeout in milliseconds (default: 30 minutes)
   instructions?: string;
   skills?: string[];
 }

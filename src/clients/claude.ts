@@ -8,6 +8,9 @@ export interface ClaudeResult {
   error?: string;
 }
 
+// Default timeout: 60 seconds (configure via claude.timeout in yaml, value in ms)
+const DEFAULT_TIMEOUT_MS = 60 * 1000;
+
 export class ClaudeClient {
   private config: ClaudeConfig;
 
@@ -28,7 +31,7 @@ export class ClaudeClient {
 
   async runClaude(prompt: string, workingDir: string): Promise<ClaudeResult> {
     return new Promise((resolve) => {
-      const args = ['--print', '--dangerously-skip-permissions'];
+      const args = ['--print', '--dangerously-skip-permissions', '--yes'];
 
       if (this.config.model) {
         args.push('--model', this.config.model);
@@ -49,15 +52,37 @@ export class ClaudeClient {
       let stdout = '';
       let stderr = '';
 
+      // Stream output in real-time while also capturing it
       childProcess.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString();
+        const text = data.toString();
+        stdout += text;
+        process.stdout.write(text);
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        const text = data.toString();
+        stderr += text;
+        process.stderr.write(text);
       });
 
+      // Set up timeout
+      const timeoutMs = this.config.timeout || DEFAULT_TIMEOUT_MS;
+      const timeoutDisplay = timeoutMs >= 60000
+        ? `${Math.round(timeoutMs / 1000 / 60)} minutes`
+        : `${Math.round(timeoutMs / 1000)} seconds`;
+      const timeout = setTimeout(() => {
+        console.error(`\n\nClaude Code timed out after ${timeoutDisplay}. Killing process...`);
+        childProcess.kill('SIGTERM');
+        // Force kill after 5 seconds if still running
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill('SIGKILL');
+          }
+        }, 5000);
+      }, timeoutMs);
+
       childProcess.on('close', (code: number | null) => {
+        clearTimeout(timeout);
         if (code === 0) {
           resolve({
             success: true,
@@ -73,6 +98,7 @@ export class ClaudeClient {
       });
 
       childProcess.on('error', (err: Error) => {
+        clearTimeout(timeout);
         resolve({
           success: false,
           output: stdout,
