@@ -40,7 +40,7 @@ export class ClaudeClient {
 
       args.push(prompt);
 
-      const process = spawn('claude', args, {
+      const childProcess = spawn('claude', args, {
         cwd: workingDir,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
@@ -49,15 +49,15 @@ export class ClaudeClient {
       let stdout = '';
       let stderr = '';
 
-      process.stdout?.on('data', (data) => {
+      childProcess.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
-      process.stderr?.on('data', (data) => {
+      childProcess.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code: number | null) => {
         if (code === 0) {
           resolve({
             success: true,
@@ -72,7 +72,7 @@ export class ClaudeClient {
         }
       });
 
-      process.on('error', (err) => {
+      childProcess.on('error', (err: Error) => {
         resolve({
           success: false,
           output: stdout,
