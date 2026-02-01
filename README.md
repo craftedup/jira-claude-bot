@@ -14,7 +14,7 @@ Automated JIRA ticket processing with Claude Code. This bot can automatically wo
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/jira-claude-bot.git
+git clone https://github.com/craftedup/jira-claude-bot.git
 cd jira-claude-bot
 
 # Install dependencies
@@ -109,6 +109,18 @@ jira-claude-bot validate
 jira-claude-bot status
 ```
 
+### Run in Daemon Mode (24/7)
+
+```bash
+# Start with default 5-minute poll interval
+jira-claude-bot start
+
+# Start with custom interval (e.g., 60 seconds)
+jira-claude-bot start --interval 60
+```
+
+The daemon will continuously poll JIRA for tickets matching your configured statuses, work them one at a time, and update JIRA with the results. Press Ctrl+C to stop gracefully.
+
 ## How It Works
 
 1. **Fetch Ticket**: Downloads ticket details and attachments from JIRA
@@ -131,7 +143,7 @@ npx ts-node src/cli/index.ts work PROJ-123
 
 ## Roadmap
 
-- [ ] Bot daemon mode (24/7 polling)
+- [x] Bot daemon mode (24/7 polling)
 - [ ] Queue management with persistence
 - [ ] Slack/Discord notifications
 - [ ] Web dashboard
