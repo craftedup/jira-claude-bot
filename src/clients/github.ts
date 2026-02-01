@@ -64,26 +64,31 @@ export class GitHubClient {
     body: string,
     baseBranch: string = 'develop'
   ): Promise<PullRequest> {
-    // Create PR using gh CLI
+    // Create PR using gh CLI - outputs the PR URL on success
+    const escapedTitle = title.replace(/"/g, '\\"');
+    const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+
     const result = this.exec(
-      `gh pr create --base ${baseBranch} --title "${title.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" --json number,url,title,state,headRefOid`
+      `gh pr create --base ${baseBranch} --title "${escapedTitle}" --body "${escapedBody}"`
     );
 
-    // Parse the JSON output
-    try {
-      const pr = JSON.parse(result);
-      return {
-        number: pr.number,
-        url: pr.url,
-        title: pr.title,
-        state: pr.state,
-        headSha: pr.headRefOid,
-      };
-    } catch {
-      // gh pr create outputs the URL on success
-      const urlMatch = result.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
-      if (urlMatch) {
-        const prNumber = parseInt(urlMatch[0].split('/').pop() || '0');
+    // gh pr create outputs the URL on success
+    const urlMatch = result.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
+    if (urlMatch) {
+      const prNumber = parseInt(urlMatch[0].split('/').pop() || '0');
+
+      // Get full PR details
+      try {
+        const prDetails = this.exec(`gh pr view ${prNumber} --json number,url,title,state,headRefOid`);
+        const pr = JSON.parse(prDetails);
+        return {
+          number: pr.number,
+          url: pr.url,
+          title: pr.title,
+          state: pr.state,
+          headSha: pr.headRefOid,
+        };
+      } catch {
         return {
           number: prNumber,
           url: urlMatch[0],
@@ -92,8 +97,9 @@ export class GitHubClient {
           headSha: '',
         };
       }
-      throw new Error(`Failed to parse PR creation result: ${result}`);
     }
+
+    throw new Error(`Failed to create PR: ${result}`);
   }
 
   async getPullRequest(prNumber: number): Promise<PullRequest> {
