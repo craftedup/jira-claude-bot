@@ -81,7 +81,7 @@ export interface GlobalConfig {
 
 const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   bot: {
-    pollInterval: 300,
+    pollInterval: 60,
     maxConcurrentWorkers: 1,
     logLevel: 'info',
     dataDir: path.join(os.homedir(), '.jira-claude-bot', 'data'),
