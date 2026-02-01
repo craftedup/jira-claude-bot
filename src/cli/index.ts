@@ -9,6 +9,7 @@ import { workCommand } from './commands/work';
 import { listTicketsCommand } from './commands/list-tickets';
 import { validateCommand } from './commands/validate';
 import { statusCommand } from './commands/status';
+import { startCommand } from './commands/start';
 
 const program = new Command();
 
@@ -47,14 +48,11 @@ program
   .description('Show bot status and recent activity')
   .action(statusCommand);
 
-// Future commands (not yet implemented)
 program
   .command('start')
   .description('Start the bot in daemon mode')
-  .option('--detach', 'Run in background')
-  .action(() => {
-    console.log('Bot daemon mode not yet implemented. Use "work <ticket>" for now.');
-  });
+  .option('-i, --interval <seconds>', 'Poll interval in seconds (default: 300)')
+  .action(startCommand);
 
 program
   .command('stop')
