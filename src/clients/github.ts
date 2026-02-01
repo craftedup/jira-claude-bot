@@ -121,18 +121,23 @@ export class GitHubClient {
     const pr = await this.getPullRequest(prNumber);
     const headSha = pr.headSha;
 
+    if (!headSha) {
+      console.log('Warning: No head SHA available, skipping deployment check');
+      return null;
+    }
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         // Get deployments for this SHA
         const deploymentsResult = this.exec(
-          `gh api repos/${this.repo}/deployments?sha=${headSha}&environment=Preview --jq '.[0].id'`
+          `gh api "repos/${this.repo}/deployments?sha=${headSha}&environment=Preview" --jq ".[0].id"`
         );
 
         const deploymentId = deploymentsResult.trim();
         if (deploymentId && deploymentId !== 'null') {
           // Get deployment status with URL
           const statusResult = this.exec(
-            `gh api repos/${this.repo}/deployments/${deploymentId}/statuses --jq '.[0].environment_url'`
+            `gh api "repos/${this.repo}/deployments/${deploymentId}/statuses" --jq ".[0].environment_url"`
           );
 
           const url = statusResult.trim();
