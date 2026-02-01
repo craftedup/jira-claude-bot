@@ -2,6 +2,19 @@ import { Poller } from './poller';
 import { Worker } from './worker';
 import { ProjectConfig, GlobalConfig } from './config';
 import { Logger } from '../utils/logger';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Get version from package.json
+function getVersion(): string {
+  try {
+    const pkgPath = path.resolve(__dirname, '../../package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 export interface DaemonOptions {
   pollInterval: number;  // seconds
@@ -37,6 +50,7 @@ export class Daemon {
 
   async start(): Promise<void> {
     this.running = true;
+    this.logger.info(`jira-claude-bot v${getVersion()}`);
     this.logger.info(`Daemon started for project ${this.projectConfig.project.jiraKey}`);
     this.logger.info(`Poll interval: ${this.options.pollInterval} seconds`);
     this.logger.info(`Watching statuses: ${this.projectConfig.tickets.statuses?.join(', ') || 'To Do'}`);
