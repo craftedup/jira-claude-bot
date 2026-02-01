@@ -1,10 +1,17 @@
 {
-  "name": "jira-claude-bot",
+  "name": "@craftedup/jira-claude-bot",
   "version": "0.1.0",
   "description": "Automated JIRA ticket processing with Claude Code",
   "main": "dist/cli/index.js",
   "bin": {
     "jira-claude-bot": "./dist/cli/index.js"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craftedup/jira-claude-bot.git"
   },
   "scripts": {
     "build": "tsc",

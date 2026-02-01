@@ -9,6 +9,9 @@ dist/
 .env.local
 .env.*.local
 
+# NPM auth (contains tokens)
+.npmrc
+
 # IDE
 .idea/
 .vscode/
