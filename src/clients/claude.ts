@@ -118,7 +118,7 @@ Please review any image attachments in the .jira-tickets/${ticket.key}/attachmen
 
     if (ticket.comments.length > 0) {
       prompt += `## Recent Comments
-${ticket.comments.slice(-3).map(c => `**${c.author}**: ${this.formatDescription(c.body)}`).join('\n\n')}
+${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body)}`).join('\n\n')}
 
 `;
     }
@@ -138,7 +138,7 @@ ${additionalContext}
     }
 
     prompt += `## Task
-1. Understand the requirements from the ticket
+1. Understand the requirements from the ticket description and any recent comments
 2. Make the necessary code changes
 3. Ensure TypeScript/lint checks pass
 4. Commit your changes with message: "${ticket.key}: [brief description]"
