@@ -5,6 +5,8 @@ import { GitHubClient, PullRequest } from '../clients/github';
 import { ClaudeClient } from '../clients/claude';
 import { ProjectConfig, GlobalConfig } from './config';
 import { Logger } from '../utils/logger';
+import { ScreenshotService, ScreenshotResult } from '../utils/screenshot';
+import { extractUrlsFromTicket, filterScreenshotableUrls } from '../utils/url-extractor';
 
 export interface WorkResult {
   success: boolean;
@@ -52,6 +54,33 @@ export class Worker {
       // 2. Download attachments
       if (ticket.attachments.length > 0) {
         await this.downloadAttachments(ticket);
+      }
+
+      // 2.5. Capture "before" screenshots
+      let beforeScreenshots: ScreenshotResult[] = [];
+      const screenshotConfig = this.projectConfig.screenshots;
+      if (screenshotConfig?.enabled && screenshotConfig.beforeUrls === 'auto') {
+        try {
+          const allUrls = extractUrlsFromTicket(ticket.description, ticket.comments);
+          const screenshotUrls = filterScreenshotableUrls(allUrls, screenshotConfig.excludeUrlPatterns);
+          if (screenshotUrls.length > 0) {
+            this.logger.info(`Found ${screenshotUrls.length} URL(s) for before screenshots`);
+            const screenshotService = new ScreenshotService(this.logger);
+            beforeScreenshots = await screenshotService.captureScreenshots(
+              screenshotUrls,
+              ticket.key,
+              'before',
+              {
+                viewportWidth: screenshotConfig.viewportWidth,
+                viewportHeight: screenshotConfig.viewportHeight,
+                waitAfterLoad: screenshotConfig.waitAfterLoad,
+              }
+            );
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`Before screenshots failed: ${message}`);
+        }
       }
 
       // 3. Create feature branch
@@ -139,10 +168,56 @@ export class Worker {
         }
       }
 
+      // 8.5. Capture "after" screenshots
+      let afterScreenshots: ScreenshotResult[] = [];
+      if (screenshotConfig?.enabled && screenshotConfig.afterPreview && previewUrl) {
+        try {
+          this.logger.info(`Capturing after screenshot: ${previewUrl}`);
+          const screenshotService = new ScreenshotService(this.logger);
+          afterScreenshots = await screenshotService.captureScreenshots(
+            [previewUrl],
+            ticket.key,
+            'after',
+            {
+              viewportWidth: screenshotConfig.viewportWidth,
+              viewportHeight: screenshotConfig.viewportHeight,
+              waitAfterLoad: screenshotConfig.waitAfterLoad,
+            }
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`After screenshots failed: ${message}`);
+        }
+      }
+
+      // 8.6. Upload all screenshots to Jira
+      const allScreenshots = [...beforeScreenshots, ...afterScreenshots];
+      const successfulScreenshots = allScreenshots.filter(s => s.success);
+      if (successfulScreenshots.length > 0) {
+        this.logger.info(`Uploading ${successfulScreenshots.length} screenshot(s) to Jira...`);
+        for (const screenshot of successfulScreenshots) {
+          try {
+            await this.jira.uploadAttachment(ticketKey, screenshot.filePath);
+            this.logger.success(`Uploaded: ${screenshot.filename}`);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`Failed to upload ${screenshot.filename}: ${message}`);
+          }
+        }
+      }
+
       // 9. Update JIRA
       this.logger.info(`Updating JIRA ticket...`);
-      const comment = this.formatJiraComment(pr, previewUrl, changesSummary);
+      const comment = this.formatJiraComment(
+        pr, previewUrl, changesSummary, beforeScreenshots, afterScreenshots
+      );
       await this.jira.addComment(ticketKey, comment);
+
+      // Clean up temporary screenshot files
+      if (allScreenshots.length > 0) {
+        const screenshotService = new ScreenshotService(this.logger);
+        screenshotService.cleanup(allScreenshots);
+      }
 
       // 10. Transition ticket
       if (this.projectConfig.workflow.transitions.onPrCreated) {
@@ -224,7 +299,13 @@ export class Worker {
       .replace(/{testing_instructions}/g, '- Review the changes\n- Test on preview deployment');
   }
 
-  private formatJiraComment(pr: PullRequest, previewUrl?: string, changesSummary?: string): string {
+  private formatJiraComment(
+    pr: PullRequest,
+    previewUrl?: string,
+    changesSummary?: string,
+    beforeScreenshots?: ScreenshotResult[],
+    afterScreenshots?: ScreenshotResult[]
+  ): string {
     let comment = `PR: ${pr.url}`;
 
     if (previewUrl) {
@@ -233,6 +314,25 @@ export class Worker {
 
     if (changesSummary) {
       comment += `\n\nChanges made:\n${changesSummary}`;
+    }
+
+    const screenshotLines: string[] = [];
+    if (beforeScreenshots) {
+      for (const s of beforeScreenshots) {
+        if (s.success) {
+          screenshotLines.push(`- Before (${s.url}): see attached ${s.filename}`);
+        }
+      }
+    }
+    if (afterScreenshots) {
+      for (const s of afterScreenshots) {
+        if (s.success) {
+          screenshotLines.push(`- After (${s.url}): see attached ${s.filename}`);
+        }
+      }
+    }
+    if (screenshotLines.length > 0) {
+      comment += `\n\nScreenshots:\n${screenshotLines.join('\n')}`;
     }
 
     comment += '\n\nReady for review.';

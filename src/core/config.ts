@@ -45,6 +45,16 @@ export interface ClaudeConfig {
   skills?: string[];
 }
 
+export interface ScreenshotConfig {
+  enabled: boolean;
+  beforeUrls: 'auto' | 'none';
+  afterPreview: boolean;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  waitAfterLoad?: number;
+  excludeUrlPatterns?: string[];
+}
+
 export interface GuardrailConfig {
   requireReview?: string[];
   skip?: string[];
@@ -59,6 +69,7 @@ export interface ProjectConfig {
   workflow: WorkflowConfig;
   deployment: DeploymentConfig;
   claude: ClaudeConfig;
+  screenshots?: ScreenshotConfig;
   guardrails?: GuardrailConfig;
 }
 
@@ -123,6 +134,14 @@ const DEFAULT_PROJECT_CONFIG: Partial<ProjectConfig> = {
   claude: {
     model: 'sonnet',
     maxTurns: 50,
+  },
+  screenshots: {
+    enabled: false,
+    beforeUrls: 'auto',
+    afterPreview: true,
+    viewportWidth: 1280,
+    viewportHeight: 800,
+    waitAfterLoad: 2000,
   },
 };
 

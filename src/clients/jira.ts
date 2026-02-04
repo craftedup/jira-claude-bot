@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import FormData from 'form-data';
 import { JiraConfig } from '../core/config';
 
 export interface JiraTicket {
@@ -171,6 +172,24 @@ export class JiraClient {
     fs.writeFileSync(outputPath, response.data);
 
     return outputPath;
+  }
+
+  async uploadAttachment(ticketKey: string, filePath: string): Promise<void> {
+    const auth = Buffer.from(`${this.config.email}:${this.config.apiToken}`).toString('base64');
+    const form = new FormData();
+    form.append('file', fs.createReadStream(filePath));
+
+    await axios.post(
+      `${this.config.host}/rest/api/3/issue/${ticketKey}/attachments`,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          'Authorization': `Basic ${auth}`,
+          'X-Atlassian-Token': 'no-check',
+        },
+      }
+    );
   }
 
   async assignTicket(ticketKey: string, accountId: string | null): Promise<void> {
