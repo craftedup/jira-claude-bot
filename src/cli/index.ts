@@ -10,6 +10,7 @@ import { listTicketsCommand } from './commands/list-tickets';
 import { validateCommand } from './commands/validate';
 import { statusCommand } from './commands/status';
 import { startCommand } from './commands/start';
+import { contextCommand } from './commands/context';
 
 const program = new Command();
 
@@ -53,6 +54,13 @@ program
   .description('Start the bot in daemon mode')
   .option('-i, --interval <seconds>', 'Poll interval in seconds (default: 300)')
   .action(startCommand);
+
+program
+  .command('context <ticket>')
+  .alias('ctx')
+  .description('Fetch a JIRA ticket and start an interactive Claude Code session with its context')
+  .option('-m, --model <model>', 'Override Claude model (sonnet, opus, haiku)')
+  .action(contextCommand);
 
 program
   .command('stop')

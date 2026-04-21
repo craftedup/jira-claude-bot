@@ -4,10 +4,12 @@ Automated JIRA ticket processing with Claude Code. This bot can automatically wo
 
 ## Features
 
-- 🎫 **JIRA Integration**: Fetch tickets, update comments, transition statuses
-- 🔀 **GitHub Integration**: Create branches, commit changes, create PRs
+- 🎫 **JIRA Integration**: Fetch tickets (with attachments and comment history), update comments, transition statuses
+- 🔀 **Git Host Integration**: GitHub (with PRs) and Bitbucket (push-only) support
 - 🚀 **Deployment Integration**: Get Vercel preview URLs
-- 🤖 **Claude Code Integration**: Automatically implement ticket requirements
+- 🤖 **Claude Code Integration**: Automatically implement ticket requirements, or drop into an interactive session with ticket context pre-loaded
+- 📸 **Before/After Screenshots**: Capture screenshots of referenced URLs before and after Claude's changes, attached to the JIRA ticket
+- 🏷️ **Label & Status Filtering**: Pick up only tickets matching configured statuses and labels
 - ⚙️ **Configurable**: Per-project configuration for workflows, transitions, and more
 
 ## Installation
@@ -91,14 +93,17 @@ This creates `.jira-claude-bot.yaml`:
 ```yaml
 project:
   jiraKey: PROJ
-  repo: owner/repo-name
+  repo: owner/repo-name       # GitHub: owner/repo   Bitbucket: workspace/repo-slug
 
 tickets:
   statuses:
     - "To Do"
+  labels:                     # optional — only pick up tickets with these labels
+    - "claude-bot"
 
 workflow:
   branchPattern: "feature/{ticket_key}"
+  skipPullRequest: false      # true for Bitbucket workflows (push branch, no PR)
   pr:
     baseBranch: develop
   transitions:
@@ -113,12 +118,23 @@ claude:
   maxTurns: 50
 ```
 
+`jira-claude-bot init` detects whether `origin` points at GitHub or Bitbucket and sets `skipPullRequest` accordingly. For Bitbucket, the bot pushes the branch and updates JIRA with the branch name instead of opening a PR.
+
 ## Usage
 
 ### Process a Single Ticket
 
 ```bash
 jira-claude-bot work PROJ-123
+```
+
+### Interactive Session with Ticket Context
+
+Fetch a ticket (plus its attachments) and drop into an interactive Claude Code session with that context pre-loaded as a system prompt. Useful when you want to explore or discuss a ticket without running the full automated workflow.
+
+```bash
+jira-claude-bot context PROJ-123
+jira-claude-bot ctx PROJ-123 --model opus
 ```
 
 ### List Available Tickets
@@ -154,13 +170,15 @@ The daemon will continuously poll JIRA for tickets matching your configured stat
 
 ## How It Works
 
-1. **Fetch Ticket**: Downloads ticket details and attachments from JIRA
-2. **Create Branch**: Creates a feature branch from the base branch
-3. **Run Claude Code**: Passes ticket context to Claude Code for implementation
-4. **Commit & Push**: Commits changes and pushes to GitHub
-5. **Create PR**: Creates a pull request with ticket link and description
-6. **Get Preview URL**: Waits for deployment and gets preview URL
-7. **Update JIRA**: Adds comment with PR link and preview URL, transitions status
+1. **Fetch Ticket**: Downloads ticket details, attachments, and recent comments from JIRA
+2. **Before Screenshots**: Captures screenshots of any URLs referenced in the ticket (current production state)
+3. **Create Branch**: Creates a feature branch from the base branch
+4. **Run Claude Code**: Passes ticket context to Claude Code for implementation
+5. **Commit & Push**: Commits changes and pushes to the git host (GitHub or Bitbucket)
+6. **Create PR**: Creates a pull request with ticket link and description (skipped for Bitbucket)
+7. **After Screenshots**: Captures screenshots of the same URLs against the preview deployment
+8. **Get Preview URL**: Waits for deployment and gets preview URL
+9. **Update JIRA**: Adds comment with PR/branch link, preview URL, and before/after screenshots; transitions status
 
 ## Development
 

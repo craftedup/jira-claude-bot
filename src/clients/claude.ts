@@ -29,6 +29,47 @@ export class ClaudeClient {
     return this.runClaude(prompt, workingDir);
   }
 
+  async startInteractiveSession(
+    ticket: JiraTicket,
+    ticketUrl: string,
+    workingDir: string,
+    additionalContext?: string
+  ): Promise<ClaudeResult> {
+    const prompt = this.buildContextPrompt(ticket, ticketUrl, additionalContext);
+
+    return new Promise((resolve) => {
+      const args: string[] = [];
+
+      if (this.config.model) {
+        args.push('--model', this.config.model);
+      }
+
+      args.push('--append-system-prompt', prompt);
+
+      const childProcess = spawn('claude', args, {
+        cwd: workingDir,
+        stdio: 'inherit',
+        env: { ...process.env },
+      });
+
+      childProcess.on('close', (code: number | null) => {
+        resolve({
+          success: code === 0,
+          output: code === 0 ? 'Session ended' : '',
+          error: code !== 0 ? `Claude exited with code ${code}` : undefined,
+        });
+      });
+
+      childProcess.on('error', (err: Error) => {
+        resolve({
+          success: false,
+          output: '',
+          error: err.message,
+        });
+      });
+    });
+  }
+
   async runClaude(prompt: string, workingDir: string): Promise<ClaudeResult> {
     return new Promise((resolve) => {
       const args = ['--print', '--dangerously-skip-permissions'];
@@ -90,6 +131,56 @@ export class ClaudeClient {
         });
       });
     });
+  }
+
+  private buildContextPrompt(ticket: JiraTicket, ticketUrl: string, additionalContext?: string): string {
+    let prompt = `You have context from JIRA ticket ${ticket.key}: ${ticket.summary}
+
+## Ticket Details
+- **Key**: ${ticket.key}
+- **Type**: ${ticket.type}
+- **Priority**: ${ticket.priority}
+- **Status**: ${ticket.status}
+- **URL**: ${ticketUrl}
+
+## Description
+${this.formatDescription(ticket.description)}
+
+`;
+
+    if (ticket.attachments.length > 0) {
+      prompt += `## Attachments
+${ticket.attachments.map(a => `- ${a.filename}`).join('\n')}
+
+Please review any image attachments in the .jira-tickets/${ticket.key}/attachments/ folder.
+
+`;
+    }
+
+    if (ticket.comments.length > 0) {
+      prompt += `## Recent Comments
+${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body)}`).join('\n\n')}
+
+`;
+    }
+
+    if (this.config.instructions) {
+      prompt += `## Project Instructions
+${this.config.instructions}
+
+`;
+    }
+
+    if (additionalContext) {
+      prompt += `## Additional Context
+${additionalContext}
+
+`;
+    }
+
+    prompt += `Use this ticket context to assist with any questions or tasks. The user will guide what to work on.`;
+
+    return prompt;
   }
 
   private buildPrompt(ticket: JiraTicket, ticketUrl: string, additionalContext?: string): string {

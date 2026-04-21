@@ -14,11 +14,13 @@ export interface TicketCriteria {
   types?: string[];
   jql?: string;
   assignee?: string;
+  labels?: string[];
 }
 
 export interface WorkflowConfig {
   branchPattern: string;
   commitPattern: string;
+  skipPullRequest?: boolean;
   pr: {
     baseBranch: string;
     titlePattern: string;

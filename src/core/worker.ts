@@ -12,6 +12,7 @@ export interface WorkResult {
   success: boolean;
   ticketKey: string;
   pr?: PullRequest;
+  branchName?: string;
   previewUrl?: string;
   error?: string;
   changesSummary?: string;
@@ -138,34 +139,41 @@ export class Worker {
       this.logger.info(`Pushing branch...`);
       await this.github.pushBranch(branchName);
 
-      // 7. Create PR
-      const prTitle = this.formatPattern(
-        this.projectConfig.workflow.pr.titlePattern,
-        ticket
-      );
-      // Get summary from git commits since Claude output isn't captured
+      // 7. Create PR (unless skipPullRequest is set, e.g. for Bitbucket)
+      const skipPr = this.projectConfig.workflow.skipPullRequest === true;
       const changesSummary = await this.github.getCommitSummary(this.projectConfig.workflow.pr.baseBranch);
-      const prBody = this.formatPrBody(ticket, ticketUrl, changesSummary);
 
-      this.logger.info(`Creating PR...`);
-      const pr = await this.github.createPullRequest(
-        prTitle,
-        prBody,
-        this.projectConfig.workflow.pr.baseBranch
-      );
-
-      // 8. Wait for deployment preview
+      let pr: PullRequest | undefined;
       let previewUrl: string | undefined;
-      if (this.projectConfig.deployment.waitForPreview) {
-        this.logger.info(`Waiting for preview deployment...`);
-        const url = await this.github.getDeploymentUrl(
-          pr.number,
-          Math.ceil(this.projectConfig.deployment.previewTimeout / 5)
+
+      if (!skipPr) {
+        const prTitle = this.formatPattern(
+          this.projectConfig.workflow.pr.titlePattern,
+          ticket
         );
-        if (url) {
-          previewUrl = url;
-          this.logger.info(`Preview URL: ${previewUrl}`);
+        const prBody = this.formatPrBody(ticket, ticketUrl, changesSummary);
+
+        this.logger.info(`Creating PR...`);
+        pr = await this.github.createPullRequest(
+          prTitle,
+          prBody,
+          this.projectConfig.workflow.pr.baseBranch
+        );
+
+        // 8. Wait for deployment preview
+        if (this.projectConfig.deployment.waitForPreview) {
+          this.logger.info(`Waiting for preview deployment...`);
+          const url = await this.github.getDeploymentUrl(
+            pr.number,
+            Math.ceil(this.projectConfig.deployment.previewTimeout / 5)
+          );
+          if (url) {
+            previewUrl = url;
+            this.logger.info(`Preview URL: ${previewUrl}`);
+          }
         }
+      } else {
+        this.logger.info(`skipPullRequest enabled — branch ${branchName} pushed, no PR created`);
       }
 
       // 8.5. Capture "after" screenshots
@@ -209,7 +217,7 @@ export class Worker {
       // 9. Update JIRA
       this.logger.info(`Updating JIRA ticket...`);
       const comment = this.formatJiraComment(
-        pr, previewUrl, changesSummary, beforeScreenshots, afterScreenshots
+        pr, branchName, previewUrl, changesSummary, beforeScreenshots, afterScreenshots
       );
       await this.jira.addComment(ticketKey, comment);
 
@@ -236,6 +244,7 @@ export class Worker {
         success: true,
         ticketKey,
         pr,
+        branchName,
         previewUrl,
         changesSummary,
       };
@@ -300,13 +309,14 @@ export class Worker {
   }
 
   private formatJiraComment(
-    pr: PullRequest,
+    pr: PullRequest | undefined,
+    branchName: string,
     previewUrl?: string,
     changesSummary?: string,
     beforeScreenshots?: ScreenshotResult[],
     afterScreenshots?: ScreenshotResult[]
   ): string {
-    let comment = `PR: ${pr.url}`;
+    let comment = pr ? `PR: ${pr.url}` : `Branch pushed: ${branchName}`;
 
     if (previewUrl) {
       comment += `\nPreview: ${previewUrl}`;

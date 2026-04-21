@@ -21,11 +21,14 @@ export class Poller {
   async getNextTicket(): Promise<JiraTicket | null> {
     const { jiraKey } = this.projectConfig.project;
     const statuses = this.projectConfig.tickets.statuses || ['To Do'];
+    const labels = this.projectConfig.tickets.labels;
 
-    // Build JQL query
     const statusClause = statuses.map(s => `"${s}"`).join(', ');
+    const labelClause = labels && labels.length > 0
+      ? ` AND labels IN (${labels.map(l => `"${l}"`).join(', ')})`
+      : '';
     const jql = this.projectConfig.tickets.jql ||
-      `project = ${jiraKey} AND status IN (${statusClause}) ORDER BY priority DESC, created ASC`;
+      `project = ${jiraKey} AND status IN (${statusClause})${labelClause} ORDER BY priority DESC, created ASC`;
 
     this.logger.debug(`Polling with JQL: ${jql}`);
 

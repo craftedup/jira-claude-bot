@@ -33,26 +33,46 @@ export async function initCommand(options: InitOptions): Promise<void> {
     // Get project details
     const jiraKey = await question('JIRA project key (e.g., CW2): ');
 
-    // Try to detect repo from git
+    // Try to detect host + repo from git remote
+    let detectedHost: 'github' | 'bitbucket' | '' = '';
     let defaultRepo = '';
     try {
       const gitRemote = require('child_process')
         .execSync('git remote get-url origin', { encoding: 'utf8' })
         .trim();
-      const match = gitRemote.match(/github\.com[:/](.+?)(?:\.git)?$/);
-      if (match) {
-        defaultRepo = match[1];
+      const ghMatch = gitRemote.match(/github\.com[:/](.+?)(?:\.git)?$/);
+      const bbMatch = gitRemote.match(/bitbucket\.org[:/](.+?)(?:\.git)?$/);
+      if (ghMatch) {
+        detectedHost = 'github';
+        defaultRepo = ghMatch[1];
+      } else if (bbMatch) {
+        detectedHost = 'bitbucket';
+        defaultRepo = bbMatch[1];
       }
     } catch {
       // Ignore
     }
 
-    const repo = await question(`GitHub repo (${defaultRepo || 'owner/repo'}): `) || defaultRepo;
+    const hostAnswer = (await question(
+      `Git host (github/bitbucket)${detectedHost ? ` [${detectedHost}]` : ''}: `
+    )).trim().toLowerCase() || detectedHost;
+    const host: 'github' | 'bitbucket' = hostAnswer === 'bitbucket' ? 'bitbucket' : 'github';
+
+    const repoLabel = host === 'bitbucket' ? 'workspace/repo-slug' : 'owner/repo';
+    const repo = (await question(
+      `Repo in "${repoLabel}" form (not a URL)${defaultRepo ? ` [${defaultRepo}]` : ''}: `
+    )).trim() || defaultRepo;
 
     // Get workflow details
     const baseBranch = await question('Base branch (develop): ') || 'develop';
     const statusToDo = await question('Status to fetch (To Do): ') || 'To Do';
-    const statusOnPr = await question('Status after PR created (PR to develop open): ') || 'PR to develop open';
+    const labelsInput = (await question('Label(s) to filter tickets by, comma-separated (leave blank for none): ')).trim();
+    const labels = labelsInput ? labelsInput.split(',').map(l => l.trim()).filter(Boolean) : undefined;
+    const transitionPrompt = host === 'bitbucket'
+      ? 'Status after branch pushed (In Progress): '
+      : 'Status after PR created (PR to develop open): ';
+    const transitionDefault = host === 'bitbucket' ? 'In Progress' : 'PR to develop open';
+    const statusOnPr = await question(transitionPrompt) || transitionDefault;
 
     // Get deployment platform
     const deployment = await question('Deployment platform (vercel/netlify/none) [vercel]: ') || 'vercel';
@@ -65,10 +85,12 @@ export async function initCommand(options: InitOptions): Promise<void> {
       },
       tickets: {
         statuses: [statusToDo],
+        ...(labels ? { labels } : {}),
       },
       workflow: {
         branchPattern: 'feature/{ticket_key}',
         commitPattern: '{ticket_key}: {summary}',
+        skipPullRequest: host === 'bitbucket',
         pr: {
           baseBranch,
           titlePattern: '{ticket_key}: {summary}',
