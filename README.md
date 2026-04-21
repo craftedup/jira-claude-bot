@@ -28,13 +28,33 @@ Set these up **before** installing — the install step and `jira-claude-bot ini
 2. Click **Create API token** — give it a label like `jira-claude-bot`
 3. **Copy the token immediately** — Atlassian only shows it once
 
-Then export it alongside your JIRA host and email (add these to your shell profile so they persist):
+Now set three environment variables so the bot can talk to JIRA. Your host, email, and token are the same for every project you run the bot in, so **set them globally once** rather than copying them into every project's `.env`.
+
+**macOS / Linux (zsh — default on modern macOS):**
+
+Open `~/.zshrc` in your editor (e.g. `open -e ~/.zshrc` or `code ~/.zshrc`) and append:
 
 ```bash
 export JIRA_HOST="https://yourcompany.atlassian.net"
 export JIRA_EMAIL="your@email.com"
 export JIRA_API_TOKEN="<paste-token-here>"
 ```
+
+Then reload your shell:
+
+```bash
+source ~/.zshrc
+```
+
+If you're on bash, use `~/.bashrc` (Linux) or `~/.bash_profile` (older macOS) instead.
+
+Verify:
+
+```bash
+echo $JIRA_API_TOKEN   # should print your token
+```
+
+> **Note:** the bot also picks up a per-project `.env` file via `dotenv`, but that's only worth using if a specific project needs different JIRA credentials. For the common case (same JIRA account across all your projects), the shell profile is one-and-done.
 
 ### 3. GitHub Personal Access Token (only for npm install path)
 
