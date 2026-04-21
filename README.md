@@ -14,36 +14,11 @@ Automated JIRA ticket processing with Claude Code. This bot can automatically wo
 
 ## Installation
 
-### Via npm (for Crafted org members)
+Pick whichever path fits — from source if you want to hack on the bot, npm if you just want to use it.
 
-**1. Create a GitHub Personal Access Token:**
+### From source (local development)
 
-Go to https://github.com/settings/tokens/new?scopes=read:packages and create a token with `read:packages` scope.
-
-**2. Configure npm to use GitHub Packages:**
-
-Add the following to `~/.npmrc` (create the file if it doesn't exist):
-
-```
-@craftedup:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN_HERE
-```
-
-Replace `YOUR_GITHUB_TOKEN_HERE` with your PAT.
-
-**3. Install globally:**
-
-```bash
-npm install -g @craftedup/jira-claude-bot
-```
-
-**4. Verify installation:**
-
-```bash
-jira-claude-bot --version
-```
-
-### From source
+Use this when you want to edit the bot itself or test unreleased changes.
 
 ```bash
 # Clone the repository
@@ -56,9 +31,33 @@ npm install
 # Build
 npm run build
 
-# Link globally
+# Link globally (makes `jira-claude-bot` available on your PATH)
 npm link
 ```
+
+After any code change, run `npm run build` (or `npm run dev` for watch mode) and the linked binary picks up the new `dist/` output automatically.
+
+### Via npm (Crafted org members)
+
+The package is published to GitHub Packages, which is private to the Crafted org and requires authentication to install.
+
+**1. Create a GitHub Personal Access Token** at https://github.com/settings/tokens/new?scopes=read:packages with the `read:packages` scope.
+
+**2. Configure npm** by adding this to `~/.npmrc`:
+
+```
+@craftedup:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN_HERE
+```
+
+**3. Install globally:**
+
+```bash
+npm install -g @craftedup/jira-claude-bot
+jira-claude-bot --version
+```
+
+To upgrade later: `npm install -g @craftedup/jira-claude-bot@latest`.
 
 ## Prerequisites
 
