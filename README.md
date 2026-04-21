@@ -12,6 +12,34 @@ Automated JIRA ticket processing with Claude Code. This bot can automatically wo
 - 🏷️ **Label & Status Filtering**: Pick up only tickets matching configured statuses and labels
 - ⚙️ **Configurable**: Per-project configuration for workflows, transitions, and more
 
+## Prerequisites
+
+Set these up **before** installing — the install step and `jira-claude-bot init` both assume they're already in place.
+
+### 1. Local tools
+
+- **Node.js 18+** — verify with `node -v`
+- **[Claude Code CLI](https://claude.ai/cli)** — install and authenticate (`claude --version` should work)
+- **[GitHub CLI](https://cli.github.com/)** — install and run `gh auth login` (needed for PR creation and deployment URL lookup)
+
+### 2. JIRA API token
+
+1. Go to https://id.atlassian.com/manage-profile/security/api-tokens while signed in to your Atlassian account
+2. Click **Create API token** — give it a label like `jira-claude-bot`
+3. **Copy the token immediately** — Atlassian only shows it once
+
+Then export it alongside your JIRA host and email (add these to your shell profile so they persist):
+
+```bash
+export JIRA_HOST="https://yourcompany.atlassian.net"
+export JIRA_EMAIL="your@email.com"
+export JIRA_API_TOKEN="<paste-token-here>"
+```
+
+### 3. GitHub Personal Access Token (only for npm install path)
+
+Skip this if you're installing from source. If you want to `npm install -g @craftedup/jira-claude-bot`, you'll need a GitHub PAT with `read:packages` scope — details in [Via npm](#via-npm-crafted-org-members) below.
+
 ## Installation
 
 Pick whichever path fits — from source if you want to hack on the bot, npm if you just want to use it.
@@ -59,26 +87,11 @@ jira-claude-bot --version
 
 To upgrade later: `npm install -g @craftedup/jira-claude-bot@latest`.
 
-## Prerequisites
-
-- Node.js 18+
-- [Claude Code CLI](https://claude.ai/cli) installed and authenticated
-- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
-- JIRA API token
-
 ## Configuration
 
-### Environment Variables
+Environment variables (`JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN`) should already be set — see [Prerequisites](#prerequisites) if not.
 
-Set these environment variables:
-
-```bash
-export JIRA_HOST="https://yourcompany.atlassian.net"
-export JIRA_EMAIL="your@email.com"
-export JIRA_API_TOKEN="your-api-token"
-```
-
-### Project Configuration
+### Project configuration
 
 Initialize in your project:
 
