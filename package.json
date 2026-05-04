@@ -1,6 +1,6 @@
 {
   "name": "@craftedup/jira-claude-bot",
-  "version": "0.1.19",
+  "version": "0.2.0",
   "description": "Automated JIRA ticket processing with Claude Code",
   "main": "dist/cli/index.js",
   "bin": {
@@ -31,10 +31,10 @@
   "license": "MIT",
   "dependencies": {
     "axios": "^1.15.2",
-    "form-data": "^4.0.0",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "dotenv": "^16.3.1",
+    "form-data": "^4.0.0",
     "js-yaml": "^4.1.0",
     "level": "^8.0.0",
     "node-cron": "^3.0.3",
@@ -44,9 +44,12 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "@types/node-cron": "^3.0.11",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.9",
     "typescript": "^5.3.0"
   },
   "engines": {

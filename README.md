@@ -169,6 +169,19 @@ jira-claude-bot context PROJ-123
 jira-claude-bot ctx PROJ-123 --model opus
 ```
 
+The rendered prompt is **always** written to `.jira-tickets/{TICKET_KEY}/ticket.md` before anything else happens, so you can read the ticket directly even if the spawned subprocess fails. Attachments land in `.jira-tickets/{TICKET_KEY}/attachments/`.
+
+**Non-TTY environments (e.g. running from inside another Claude Code session via the Bash tool):** the command detects that there's no TTY and skips spawning the subprocess automatically — it writes `ticket.md` and exits 0. The parent session can then `Read` the ticket file directly.
+
+**Explicit print mode:** to dump the rendered prompt to stdout without spawning anything (useful for piping into other tools), pass `--print` (or `--no-spawn`):
+
+```bash
+jira-claude-bot context PROJ-123 --print
+jira-claude-bot context PROJ-123 --no-spawn
+```
+
+ADF link marks, `inlineCard` nodes, and `media`/`mediaInline` nodes are preserved in the rendered output, so URLs embedded in linked text (e.g. Figma links rendered as the word "Design:" in JIRA descriptions) are no longer dropped.
+
 ### List Available Tickets
 
 ```bash

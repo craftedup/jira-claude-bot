@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('jira-claude-bot')
   .description('Automated JIRA ticket processing with Claude Code')
-  .version('0.1.0');
+  .version('0.2.0');
 
 program
   .command('init')
@@ -60,6 +60,8 @@ program
   .alias('ctx')
   .description('Fetch a JIRA ticket and start an interactive Claude Code session with its context')
   .option('-m, --model <model>', 'Override Claude model (sonnet, opus, haiku)')
+  .option('-p, --print', 'Print the rendered prompt to stdout and exit (skip subprocess spawn)')
+  .option('--no-spawn', 'Write ticket file and exit without spawning the Claude Code subprocess')
   .action(contextCommand);
 
 program

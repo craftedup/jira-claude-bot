@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { ClaudeConfig } from '../core/config';
 import { JiraTicket } from './jira';
+import { formatDescription } from './adf';
 
 export interface ClaudeResult {
   success: boolean;
@@ -29,13 +30,22 @@ export class ClaudeClient {
     return this.runClaude(prompt, workingDir);
   }
 
+  buildContextPromptPublic(
+    ticket: JiraTicket,
+    ticketUrl: string,
+    additionalContext?: string
+  ): string {
+    return this.buildContextPrompt(ticket, ticketUrl, additionalContext);
+  }
+
   async startInteractiveSession(
     ticket: JiraTicket,
     ticketUrl: string,
     workingDir: string,
-    additionalContext?: string
+    additionalContext?: string,
+    prebuiltPrompt?: string
   ): Promise<ClaudeResult> {
-    const prompt = this.buildContextPrompt(ticket, ticketUrl, additionalContext);
+    const prompt = prebuiltPrompt ?? this.buildContextPrompt(ticket, ticketUrl, additionalContext);
 
     return new Promise((resolve) => {
       const args: string[] = [];
@@ -144,7 +154,7 @@ export class ClaudeClient {
 - **URL**: ${ticketUrl}
 
 ## Description
-${this.formatDescription(ticket.description)}
+${this.formatDescription(ticket.description, ticket.key)}
 
 `;
 
@@ -159,7 +169,7 @@ Please review any image attachments in the .jira-tickets/${ticket.key}/attachmen
 
     if (ticket.comments.length > 0) {
       prompt += `## Recent Comments
-${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body)}`).join('\n\n')}
+${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body, ticket.key)}`).join('\n\n')}
 
 `;
     }
@@ -194,7 +204,7 @@ ${additionalContext}
 - **URL**: ${ticketUrl}
 
 ## Description
-${this.formatDescription(ticket.description)}
+${this.formatDescription(ticket.description, ticket.key)}
 
 `;
 
@@ -209,7 +219,7 @@ Please review any image attachments in the .jira-tickets/${ticket.key}/attachmen
 
     if (ticket.comments.length > 0) {
       prompt += `## Recent Comments
-${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body)}`).join('\n\n')}
+${ticket.comments.slice(-5).map(c => `**${c.author}** (${c.created}):\n${this.formatDescription(c.body, ticket.key)}`).join('\n\n')}
 
 `;
     }
@@ -240,66 +250,7 @@ Do not create a PR - that will be handled separately.
     return prompt;
   }
 
-  private formatDescription(description: any): string {
-    if (!description) return 'No description provided.';
-
-    if (typeof description === 'string') {
-      return description;
-    }
-
-    // Handle Atlassian Document Format
-    if (description.type === 'doc' && description.content) {
-      return this.adfToText(description.content);
-    }
-
-    return JSON.stringify(description, null, 2);
-  }
-
-  private adfToText(content: any[]): string {
-    let text = '';
-
-    for (const node of content) {
-      switch (node.type) {
-        case 'paragraph':
-          text += this.adfToText(node.content || []) + '\n\n';
-          break;
-        case 'text':
-          text += node.text || '';
-          break;
-        case 'bulletList':
-          for (const item of node.content || []) {
-            text += '- ' + this.adfToText(item.content || []).trim() + '\n';
-          }
-          text += '\n';
-          break;
-        case 'orderedList':
-          let num = 1;
-          for (const item of node.content || []) {
-            text += `${num}. ` + this.adfToText(item.content || []).trim() + '\n';
-            num++;
-          }
-          text += '\n';
-          break;
-        case 'listItem':
-          text += this.adfToText(node.content || []);
-          break;
-        case 'heading':
-          const level = node.attrs?.level || 1;
-          text += '#'.repeat(level) + ' ' + this.adfToText(node.content || []) + '\n\n';
-          break;
-        case 'codeBlock':
-          text += '```\n' + (node.content?.[0]?.text || '') + '\n```\n\n';
-          break;
-        case 'hardBreak':
-          text += '\n';
-          break;
-        default:
-          if (node.content) {
-            text += this.adfToText(node.content);
-          }
-      }
-    }
-
-    return text;
+  private formatDescription(description: any, ticketKey?: string): string {
+    return formatDescription(description, { ticketKey });
   }
 }

@@ -2,20 +2,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadGlobalConfig, loadProjectConfig, validateConfig } from '../../core/config';
+import { loadGlobalConfig, loadProjectConfig } from '../../core/config';
 import { JiraClient } from '../../clients/jira';
 import { ClaudeClient } from '../../clients/claude';
-import { Logger } from '../../utils/logger';
 
 interface ContextOptions {
   model?: string;
+  print?: boolean;
+  spawn?: boolean;
+}
+
+function isInteractiveTty(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
 export async function contextCommand(ticketKey: string, options: ContextOptions): Promise<void> {
   const spinner = ora();
 
+  // commander turns --no-spawn into options.spawn === false
+  const noSpawnRequested = options.spawn === false;
+  const printRequested = options.print === true || noSpawnRequested;
+  const interactive = isInteractiveTty();
+
   try {
-    // Load configuration
     spinner.start('Loading configuration...');
     const globalConfig = loadGlobalConfig();
     const projectConfig = loadProjectConfig();
@@ -26,7 +35,6 @@ export async function contextCommand(ticketKey: string, options: ContextOptions)
       process.exit(1);
     }
 
-    // Only validate JIRA config (we don't need repo/workflow for this)
     if (!globalConfig.jira.host || !globalConfig.jira.email || !globalConfig.jira.apiToken) {
       spinner.fail('JIRA configuration is incomplete');
       console.log(chalk.yellow('Set JIRA_HOST, JIRA_EMAIL, and JIRA_API_TOKEN environment variables.'));
@@ -35,17 +43,18 @@ export async function contextCommand(ticketKey: string, options: ContextOptions)
 
     spinner.succeed('Configuration loaded');
 
-    // Fetch ticket details
     spinner.start(`Fetching ${ticketKey}...`);
     const jira = new JiraClient(globalConfig.jira);
     const ticket = await jira.getTicket(ticketKey);
     const ticketUrl = jira.getTicketUrl(ticketKey);
     spinner.succeed(`Fetched ${ticketKey}: ${ticket.summary}`);
 
-    // Download attachments if any
+    const ticketDir = path.join(process.cwd(), '.jira-tickets', ticket.key);
+    fs.mkdirSync(ticketDir, { recursive: true });
+
     if (ticket.attachments.length > 0) {
       spinner.start(`Downloading ${ticket.attachments.length} attachment(s)...`);
-      const attachmentsDir = path.join(process.cwd(), '.jira-tickets', ticket.key, 'attachments');
+      const attachmentsDir = path.join(ticketDir, 'attachments');
       fs.mkdirSync(attachmentsDir, { recursive: true });
 
       for (const attachment of ticket.attachments) {
@@ -54,17 +63,40 @@ export async function contextCommand(ticketKey: string, options: ContextOptions)
       spinner.succeed(`Downloaded ${ticket.attachments.length} attachment(s)`);
     }
 
-    // Start interactive Claude Code session
-    console.log(chalk.blue(`\nStarting Claude Code session with ${ticketKey} context...\n`));
-
     const claudeConfig = { ...projectConfig.claude };
     if (options.model) {
       claudeConfig.model = options.model as any;
     }
 
     const claude = new ClaudeClient(claudeConfig);
-    await claude.startInteractiveSession(ticket, ticketUrl, process.cwd());
+    const prompt = claude.buildContextPromptPublic(ticket, ticketUrl);
 
+    const ticketFile = path.join(ticketDir, 'ticket.md');
+    fs.writeFileSync(ticketFile, prompt + '\n');
+    const relTicketFile = path.relative(process.cwd(), ticketFile);
+    console.log(chalk.green(`Wrote ticket context to ${relTicketFile}`));
+
+    if (printRequested) {
+      process.stdout.write(prompt + '\n');
+      return;
+    }
+
+    if (!interactive) {
+      console.log(
+        chalk.yellow(
+          'Non-TTY environment detected — skipping interactive Claude Code session.'
+        )
+      );
+      console.log(
+        chalk.gray(
+          `Read the ticket from ${relTicketFile}, or re-run with --print to emit the prompt to stdout.`
+        )
+      );
+      return;
+    }
+
+    console.log(chalk.blue(`\nStarting Claude Code session with ${ticketKey} context...\n`));
+    await claude.startInteractiveSession(ticket, ticketUrl, process.cwd(), undefined, prompt);
   } catch (error) {
     spinner.fail('Error');
     console.error(chalk.red(error instanceof Error ? error.message : String(error)));
