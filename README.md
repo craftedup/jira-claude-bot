@@ -182,6 +182,43 @@ jira-claude-bot context PROJ-123 --no-spawn
 
 ADF link marks, `inlineCard` nodes, and `media`/`mediaInline` nodes are preserved in the rendered output, so URLs embedded in linked text (e.g. Figma links rendered as the word "Design:" in JIRA descriptions) are no longer dropped.
 
+### Working tickets from inside Claude Code (recommended for devs)
+
+The most ergonomic way to use the bot day-to-day is *not* to spawn it — it's to drive it from a
+Claude Code session you already have open. We ship a **`jira-claude-bot` skill** that teaches
+Claude Code the workflow: it runs `context <TICKET> --print` (which detects the non-TTY
+environment and just writes `.jira-tickets/<TICKET>/ticket.md` instead of trying to spawn a
+nested session), reads the ticket in, works it conversationally, and comments back to JIRA.
+
+Once installed, a developer just opens Claude Code in their project and says:
+
+> work on PROJ-123
+
+and Claude fetches the ticket and gets going — no flags to remember.
+
+**Install the skill (once per machine):**
+
+```bash
+# from a clone of this repo
+npm run install-skill
+```
+
+That copies the skill into `~/.claude/skills/jira-claude-bot/`. Re-run it any time to update.
+The canonical copy lives at [`skills/jira-claude-bot/SKILL.md`](./skills/jira-claude-bot/SKILL.md).
+(Pairs well with the `jira-comment` skill for posting updates back to the ticket.)
+
+**No `init` required.** The `context` flow works in any folder that has the three JIRA vars —
+either exported in your shell (see [Prerequisites](#prerequisites)) or in a local `.env`:
+
+```
+JIRA_HOST=https://yourcompany.atlassian.net
+JIRA_EMAIL=you@example.com
+JIRA_API_TOKEN=your_token
+```
+
+`jira-claude-bot init` / `.jira-claude-bot.yaml` are only needed for the automated `work` and
+daemon paths.
+
 ### List Available Tickets
 
 ```bash

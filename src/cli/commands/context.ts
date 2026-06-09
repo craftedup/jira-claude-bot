@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadGlobalConfig, loadProjectConfig } from '../../core/config';
+import { loadGlobalConfig, loadProjectConfig, ClaudeConfig } from '../../core/config';
 import { JiraClient } from '../../clients/jira';
 import { ClaudeClient } from '../../clients/claude';
 
@@ -27,13 +27,10 @@ export async function contextCommand(ticketKey: string, options: ContextOptions)
   try {
     spinner.start('Loading configuration...');
     const globalConfig = loadGlobalConfig();
+    // Project config is optional for `context` — it only supplies Claude model/instruction
+    // defaults. The fetch-and-read workflow works in any folder that has JIRA credentials,
+    // so a project doesn't need `jira-claude-bot init` first.
     const projectConfig = loadProjectConfig();
-
-    if (!projectConfig) {
-      spinner.fail('No project configuration found');
-      console.log(chalk.yellow('Run "jira-claude-bot init" to create a configuration file.'));
-      process.exit(1);
-    }
 
     if (!globalConfig.jira.host || !globalConfig.jira.email || !globalConfig.jira.apiToken) {
       spinner.fail('JIRA configuration is incomplete');
@@ -63,7 +60,11 @@ export async function contextCommand(ticketKey: string, options: ContextOptions)
       spinner.succeed(`Downloaded ${ticket.attachments.length} attachment(s)`);
     }
 
-    const claudeConfig = { ...projectConfig.claude };
+    const claudeConfig: ClaudeConfig = {
+      model: 'sonnet',
+      maxTurns: 50,
+      ...(projectConfig?.claude ?? {}),
+    };
     if (options.model) {
       claudeConfig.model = options.model as any;
     }

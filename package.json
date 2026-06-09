@@ -18,7 +18,8 @@
     "dev": "tsc --watch",
     "start": "node dist/cli/index.js start",
     "lint": "eslint src/**/*.ts",
-    "test": "jest"
+    "test": "jest",
+    "install-skill": "bash scripts/install-skill.sh"
   },
   "keywords": [
     "jira",
