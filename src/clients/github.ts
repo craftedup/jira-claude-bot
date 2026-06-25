@@ -1,4 +1,7 @@
 import { execSync, spawn } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 export interface PullRequest {
   number: number;
@@ -64,13 +67,18 @@ export class GitHubClient {
     body: string,
     baseBranch: string = 'develop'
   ): Promise<PullRequest> {
-    // Create PR using gh CLI - outputs the PR URL on success
     const escapedTitle = title.replace(/"/g, '\\"');
-    const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    const bodyFile = path.join(os.tmpdir(), `gh-pr-body-${Date.now()}-${process.pid}.md`);
+    fs.writeFileSync(bodyFile, body, 'utf8');
 
-    const result = this.exec(
-      `gh pr create --base ${baseBranch} --title "${escapedTitle}" --body "${escapedBody}"`
-    );
+    let result: string;
+    try {
+      result = this.exec(
+        `gh pr create --base ${baseBranch} --title "${escapedTitle}" --body-file "${bodyFile}"`
+      );
+    } finally {
+      try { fs.unlinkSync(bodyFile); } catch { /* best-effort cleanup */ }
+    }
 
     // gh pr create outputs the URL on success
     const urlMatch = result.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
