@@ -125,6 +125,26 @@ export class GitHubClient {
     };
   }
 
+  async findOpenPrForBranch(branchName: string): Promise<PullRequest | undefined> {
+    try {
+      const result = this.exec(
+        `gh pr list --head ${branchName} --state open --json number,url,title,state,headRefOid --limit 1`
+      );
+      const prs = JSON.parse(result);
+      if (!Array.isArray(prs) || prs.length === 0) return undefined;
+      const pr = prs[0];
+      return {
+        number: pr.number,
+        url: pr.url,
+        title: pr.title,
+        state: pr.state,
+        headSha: pr.headRefOid,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
   async getDeploymentUrl(prNumber: number, maxAttempts: number = 18): Promise<string | null> {
     const pr = await this.getPullRequest(prNumber);
     const headSha = pr.headSha;

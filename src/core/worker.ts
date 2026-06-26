@@ -84,11 +84,28 @@ export class Worker {
         }
       }
 
-      // 3. Create feature branch
+      // 3. Compute branch name and bail out if an open PR already exists for it.
+      // Re-running would force-delete the branch and orphan the existing PR.
       const branchName = this.formatPattern(
         this.projectConfig.workflow.branchPattern,
         ticket
       );
+
+      const existingPr = await this.github.findOpenPrForBranch(branchName);
+      if (existingPr) {
+        this.logger.warn(
+          `Skipping ${ticketKey}: open PR #${existingPr.number} already exists for ${branchName}`
+        );
+        await this.handleExistingPr(ticketKey, existingPr, branchName);
+        return {
+          success: false,
+          ticketKey,
+          branchName,
+          pr: existingPr,
+          error: `Existing open PR #${existingPr.number}; skipped to avoid clobbering`,
+        };
+      }
+
       this.logger.info(`Creating branch: ${branchName}`);
       await this.github.createBranch(
         branchName,
@@ -122,6 +139,7 @@ export class Worker {
 
       if (!hasUncommitted && !hasNewCommits) {
         this.logger.warn(`No changes made by Claude Code`);
+        await this.handleNoChanges(ticketKey, claudeResult.output);
         return {
           success: false,
           ticketKey,
@@ -281,6 +299,69 @@ export class Worker {
     for (const attachment of ticket.attachments) {
       this.logger.info(`Downloading attachment: ${attachment.filename}`);
       await this.jira.downloadAttachment(attachment, attachmentsDir);
+    }
+  }
+
+  private async handleExistingPr(
+    ticketKey: string,
+    existingPr: PullRequest,
+    branchName: string
+  ): Promise<void> {
+    const onSkipped = this.projectConfig.workflow.transitions?.onSkippedExistingPr;
+
+    let comment = `🤖 Bot skipped this ticket because an open PR already exists.\n\n` +
+      `Existing PR: ${existingPr.url}\nBranch: \`${branchName}\`\n\n` +
+      `To iterate on the existing PR, push commits to \`${branchName}\` directly (not via this bot). ` +
+      `To have the bot redo this from scratch, close the existing PR and delete the branch, then ` +
+      `move this ticket back to a bot-eligible status.`;
+    if (onSkipped) {
+      comment += `\n\n---\nTransitioning to "${onSkipped}".`;
+    }
+
+    try {
+      await this.jira.addComment(ticketKey, comment);
+      this.logger.info(`Posted existing-PR comment to JIRA`);
+    } catch (e) {
+      this.logger.warn(`Failed to post existing-PR comment: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    if (onSkipped) {
+      try {
+        await this.jira.transitionTicket(ticketKey, onSkipped);
+        this.logger.info(`Transitioned ${ticketKey} to "${onSkipped}"`);
+      } catch (e) {
+        this.logger.warn(`Failed to transition ${ticketKey} to "${onSkipped}": ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+
+  private async handleNoChanges(ticketKey: string, claudeOutput: string): Promise<void> {
+    const MAX_OUTPUT_CHARS = 6000;
+    const reasoning = claudeOutput.length > MAX_OUTPUT_CHARS
+      ? '[output truncated to last 6000 characters]\n\n' + claudeOutput.slice(-MAX_OUTPUT_CHARS)
+      : claudeOutput;
+
+    const onNoChanges = this.projectConfig.workflow.transitions?.onNoChanges;
+
+    let comment = `🤖 Bot ran but made no changes to the codebase.\n\nClaude's reasoning:\n\n${reasoning}`;
+    if (onNoChanges) {
+      comment += `\n\n---\nTransitioning to "${onNoChanges}". Move back to your bot-eligible status with a clarifying comment if you want another pass.`;
+    }
+
+    try {
+      await this.jira.addComment(ticketKey, comment);
+      this.logger.info(`Posted no-changes comment to JIRA`);
+    } catch (e) {
+      this.logger.warn(`Failed to post no-changes comment: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    if (onNoChanges) {
+      try {
+        await this.jira.transitionTicket(ticketKey, onNoChanges);
+        this.logger.info(`Transitioned ${ticketKey} to "${onNoChanges}"`);
+      } catch (e) {
+        this.logger.warn(`Failed to transition ${ticketKey} to "${onNoChanges}": ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
   }
 

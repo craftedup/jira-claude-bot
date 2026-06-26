@@ -30,6 +30,8 @@ export interface WorkflowConfig {
     onPrCreated?: string;
     onPrMerged?: string;
     onPrFailed?: string;
+    onNoChanges?: string;
+    onSkippedExistingPr?: string;
   };
 }
 
